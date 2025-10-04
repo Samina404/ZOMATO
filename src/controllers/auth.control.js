@@ -1,139 +1,80 @@
-const express = require("express");
-const router = express.Router();
-const userModel = require("../models/user.model");
-const FoodPartner = require("../models/foodpartner.model");
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
+const User = require('../models/user.model');
+const FoodPartner = require('../models/foodpartner.model');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
-// ==================== USER AUTH ====================
+const JWT_SECRET = process.env.JWT_SECRET;
 
-// Register User
-const registerUser = async (req, res) => {
-  const { name, email, password } = req.body;
-  try {
-    let user = await userModel.findOne({ email });
-    if (user) return res.status(400).json({ message: "User already exists" });
+// ---------------- USER ----------------
+exports.registerUser = async (req, res) => {
+    try {
+        const { name, email, password } = req.body;
+        if (!name || !email || !password)
+            return res.status(400).json({ message: "All fields are required" });
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-    user = new userModel({ name, email, password: hashedPassword });
-    await user.save();
+        const existing = await User.findOne({ email });
+        if (existing) return res.status(400).json({ message: "User already exists" });
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "7d",
-    });
-    res.json({ token, message: "User registered successfully" });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send("Server error");
-  }
+        const hashed = await bcrypt.hash(password, 10);
+        const user = new User({ name, email, password: hashed });
+        await user.save();
+
+        const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: "7d" });
+        res.json({ token, message: "User registered successfully" });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
 };
 
-// Login User
-const loginUser = async (req, res) => {
-  const { email, password } = req.body;
-  try {
-    const user = await userModel.findOne({ email });
-    if (!user) return res.status(400).json({ message: "Invalid credentials" });
+exports.loginUser = async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        const user = await User.findOne({ email });
+        if (!user) return res.status(400).json({ message: "Invalid credentials" });
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
+        const match = await bcrypt.compare(password, user.password);
+        if (!match) return res.status(400).json({ message: "Invalid credentials" });
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "7d",
-    });
-    res.json({ token, message: "Login successful" });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send("Server error");
-  }
+        const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: "7d" });
+        res.json({ token, message: "Login successful" });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
 };
 
-// Logout User
-const logoutUser = async (req, res) => {
-  try {
-    res.clearCookie("token");
-    res.json({ message: "User logged out successfully" });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send("Server error");
-  }
+// ---------------- FOOD PARTNER ----------------
+exports.registerFoodPartner = async (req, res) => {
+    try {
+        const { name, email, password, phone, address, restaurantName, cuisine } = req.body;
+        if (!name || !email || !password || !phone || !address || !restaurantName)
+            return res.status(400).json({ message: "All fields are required" });
+
+        const existing = await FoodPartner.findOne({ email });
+        if (existing) return res.status(400).json({ message: "Food Partner already exists" });
+
+        const hashed = await bcrypt.hash(password, 10);
+        const partner = new FoodPartner({ name, email, password: hashed, phone, address, restaurantName, cuisine });
+        await partner.save();
+
+        const token = jwt.sign({ id: partner._id }, JWT_SECRET, { expiresIn: "7d" });
+        res.json({ token, message: "Food Partner registered successfully" });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
 };
 
-// ==================== FOODPARTNER AUTH ====================
+exports.loginFoodPartner = async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        const partner = await FoodPartner.findOne({ email });
+        if (!partner) return res.status(400).json({ message: "Invalid credentials" });
 
-// Register FoodPartner
-const registerFoodPartner = async (req, res) => {
-  const { name, email, password, phone, address, restaurantName, cuisine } =
-    req.body;
-  try {
-    let partner = await FoodPartner.findOne({ email });
-    if (partner)
-      return res.status(400).json({ message: "Food Partner already exists" });
+        const match = await bcrypt.compare(password, partner.password);
+        if (!match) return res.status(400).json({ message: "Invalid credentials" });
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-    partner = new FoodPartner({
-      name,
-      email,
-      password: hashedPassword,
-      phone,
-      address,
-      restaurantName,
-      cuisine,
-    });
-    await partner.save();
-
-    const token = jwt.sign({ id: partner._id }, process.env.JWT_SECRET, {
-      expiresIn: "7d",
-    });
-    res.json({ token, message: "Food Partner registered successfully" });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send("Server error");
-  }
-};
-
-// Login FoodPartner
-const loginFoodPartner = async (req, res) => {
-  const { email, password } = req.body;
-  try {
-    const partner = await FoodPartner.findOne({ email });
-    if (!partner)
-      return res.status(400).json({ message: "Invalid credentials" });
-
-    const isMatch = await bcrypt.compare(password, partner.password);
-    if (!isMatch)
-      return res.status(400).json({ message: "Invalid credentials" });
-
-    const token = jwt.sign({ id: partner._id }, process.env.JWT_SECRET, {
-      expiresIn: "7d",
-    });
-    res.json({ token, message: "Food Partner login successful" });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send("Server error");
-  }
-};
-
-// Logout FoodPartner
-const logoutFoodPartner = async (req, res) => {
-  try {
-    res.clearCookie("token");
-    res.json({ message: "Food Partner logged out successfully" });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send("Server error");
-  }
-};
-
-// ==================== ROUTES ====================
-
-// User routes
-
-module.exports = {
-  registerUser,
-  loginUser,
-  logoutUser,
-  registerFoodPartner,
-  loginFoodPartner,
-  logoutFoodPartner
+        const token = jwt.sign({ id: partner._id }, JWT_SECRET, { expiresIn: "7d" });
+        res.json({ token, message: "Food Partner login successful" });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
 };
