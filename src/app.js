@@ -7,7 +7,7 @@ const authRoutes = require('./routes/auth.routes');
 
 // Enable CORS
 app.use(cors({
-    origin: "http://localhost:5173", // your frontend URL
+  origin: "*", // your frontend URL
     credentials: true,
 }));
 
